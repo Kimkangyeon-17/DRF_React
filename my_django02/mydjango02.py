@@ -24,6 +24,7 @@ django.setup()
 
 
 def index(request):
+    query = request.GET.get("query", "").strip()
     json_url = "https://raw.githubusercontent.com/pyhub-kr/dump-data/main/melon/melon-20230906.json"
 
     response = requests.get(json_url)
@@ -32,6 +33,12 @@ def index(request):
         song_list = response.json()
     else:
         song_list = []
+
+    if query:
+        song_list = filter(
+            lambda song: query in song["가수"],
+            song_list,
+        )
 
     # song_list = response.json()
     # query = "Love"  # 검색어
