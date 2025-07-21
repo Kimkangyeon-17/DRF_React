@@ -1,3 +1,5 @@
+{% load django_bootstrap5 %}
+
 <!doctype html>
 <html lang="ko" data-bs-theme="dark">
 <head>
@@ -87,6 +89,11 @@
                     </div>
                 {% endfor %}
             </div>
+            <!-- {% include "hottrack/_pagination.html" with page_obj=page_obj only %} -->
+            <div class="my-5-flex justify-content-center">
+                {% bootstrap_pagination page_obj %}
+            </div>
+            
         </div>
     </div>
 
