@@ -6,6 +6,7 @@ from django.db.models import QuerySet, Q
 from django.db.models.base import Model as Model
 from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import render
+from django.conf import settings
 
 from hottrack.models import Song
 from django.shortcuts import get_object_or_404
@@ -14,7 +15,17 @@ from hottrack.utils.cover import make_cover_image
 from io import BytesIO
 import pandas as pd
 from typing import Literal
-from django.views.generic import DetailView, ListView
+from django.views.generic import (
+    DetailView,
+    ListView,
+    YearArchiveView,
+    MonthArchiveView,
+    DayArchiveView,
+    TodayArchiveView,
+    WeekArchiveView,
+    ArchiveIndexView,
+    DateDetailView,
+)
 
 
 class IndexView(ListView):
@@ -125,3 +136,74 @@ def cover_png(request, pk):
     cover_image.save(response, format="png")
 
     return response
+
+
+class SongYearArchiveView(YearArchiveView):
+    model = Song
+    date_field = "release_date"  # 조회할 날짜 필드
+    make_object_list = True
+
+
+class SongMonthArchiveView(MonthArchiveView):
+    model = Song
+    # paginate_by = None
+    date_field = "release_date"
+    # 날짜 포맷 : "%m" (숫자, ex: "01", "1" 등), "%b" (디폴트, 월 이름의 약어, ex: "Jan", "Feb" 등)
+    month_format = "%m"
+
+
+class SongDayArchiveView(DayArchiveView):
+    model = Song
+    date_field = "release_date"
+    month_format = "%m"
+
+
+class SongTodayArchiveView(TodayArchiveView):
+    model = Song
+    date_field = "release_date"
+
+    if settings.DEBUG:
+
+        def get_dated_items(self):
+            """지정 날짜의 데이터를 조회"""
+            fake_today = self.request.GET.get("fake-today", "")
+            try:
+                year, month, day = map(int, fake_today.split("-", 3))
+                return self._get_dated_items(datetime.date(year, month, day))
+            except ValueError:
+                # fake_today 파라미터가 없거나 날짜 형식이 잘못되었을 경우
+                return super().get_dated_items()
+
+
+class SongWeekArchiveView(WeekArchiveView):
+    model = Song
+    date_field = "release_date"
+    # date_list_period = "week"
+    # 템플릿 필터 date의 "W" 포맷은 ISO 8601에 따라 한 주의 시작을 월요일로 간주합니다.
+    #  - 템플릿 단에서 한 주의 시작을 일요일로 할려면 커스텀 템플릿 태그 구현이 필요합니다.
+    week_format = (
+        "%W"  # "%U" (디폴트, 한 주의 시작을 일요일), %W (한 주의 시작을 월요일)
+    )
+
+
+class SongArchiveIndexView(ArchiveIndexView):
+    model = Song
+    # queryset = Song.objects.all()
+    date_field = "release_date"  # 기준 날짜 필드
+    paginate_by = 10
+
+    # # date_list_period = "year"  # 단위 : year (디폴트), month, day, week
+    def get_date_list_period(self):
+        #     # URL Captured Value에 date_list_period가 없으면, date_list_period 속성을 활용합니다.
+        return self.kwargs.get("date_list_period", self.date_list_period)
+
+    def get_context_data(self, **kwargs):
+        context_data = super().get_context_data(**kwargs)
+        context_data["date_list_period"] = self.get_date_list_period()
+        return context_data
+
+
+class SongDateDetailView(DateDetailView):
+    model = Song
+    date_field = "release_date"
+    month_format = "%m"
