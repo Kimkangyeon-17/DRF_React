@@ -7,10 +7,13 @@ from typing import Dict
 from urllib.parse import quote
 
 from django.db import models
+from django.urls import reverse
+from django.utils.text import slugify
 
 
 class Song(models.Model):
     melon_uid = models.CharField(max_length=20, unique=True)
+    slug = models.SlugField(allow_unicode=True, blank=True)
     rank = models.PositiveSmallIntegerField()
     album_name = models.CharField(max_length=100)
     name = models.CharField(max_length=100)
@@ -20,6 +23,36 @@ class Song(models.Model):
     genre = models.CharField(max_length=100)
     release_date = models.DateField()
     like_count = models.PositiveIntegerField()
+
+    class Meta:
+        indexes = [
+            # 조회를 위해 인덱스를 추가합니다.
+            models.Index(fields=["slug"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        # slug 필드는 name 필드에 의존적입니다.
+        # slug 필드 값이 없는 경우에만 name 필드로부터 slug 필드를 채웁니다.
+        self.slugify()
+        super().save(*args, **kwargs)
+
+    def slugify(self, force=False):
+        if force or not self.slug:
+            self.slug = slugify(self.name, allow_unicode=True)
+
+    def get_absolute_url(self) -> str:
+        self.slugify()
+        """Song 모델의 detail url을 계산하여 반환"""
+        # slug = slugify(self.name, allow_unicode=True)
+        return reverse(
+            "hottrack:song_detail",
+            args=[
+                self.release_date.year,
+                self.release_date.month,
+                self.release_date.day,
+                self.slug,
+            ],
+        )
 
     @property
     def cover_image_tag(self) -> str:
